@@ -15,13 +15,77 @@ libname SIMULA "F:\data\natura\Balanceamento\PLANEJAMENTO_DSC";
 /*%let CLASS_PATH= C:\Users\Fabio\Google Drive\Projetos\Natura\Balanceamento\Programas\v1.01;*/
 %let CLASS_PATH=F:\data\natura\Balanceamento\balanceamento_compartilhado\REPOSITORIO STP;
 options mprint symbolgen mlogic;
-%include "&CLASS_PATH/CPTLeDados_v21.sas";
+%include "&CLASS_PATH/CPTLeDados_v2.sas";
 %include "&CLASS_PATH/CPTLog_v2.sas";
 
 %macro timing;
 	current = time();
 	put current= time.;
 %mend timing;
+
+%macro AjustaCalendario;
+/* Faz calendário, captação e relações únicos incluindo períodos de lançamentos (compras com Cartão de Crédito)*/
+
+/* Carrega CAPTACAO_DIA_CC*/
+	set<num,num,num,num,num> CaptaDiaCCSet;
+	set diaCaptaCC = {-10..-1};
+	num percCaptaCiclo{CaptaDiaCCSet};
+	num percCaptaDiaCC{CaptaDiaCCSet,diaCaptaCC};
+	read data simula.CAPTACAO_DIA_CC into CaptaDiaCCSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA] percCaptaCiclo=perc_ciclo
+	{dia in diaCaptaCC} <percCaptaDiaCC[ciclo,ano,cod_re,cod_gv,dia_semana,dia] = col(compress("I" || put(dia,8.0)))>;
+/*	print percCaptaDiaCC;*/
+/*	for{<cc,ano,re,gv,cv> in CaptaDiaCCSet}*/
+/*		put percCaptaDiaCC[cc,ano,re,gv,cv,-1]=;*/
+
+	/* Ajusta percentual de captação*/
+	for{<cc,a,re,gv,ds> in CaptaDiaCCSet, d in diaCapta, <ccc,ac,rec,gvc,cds> in CaptaDiaSet: 
+		ccc=cc and ac=a and rec=re and gvc=gv and cds=ds} do;
+		percCaptaDia[cc,a,re,gv,ds,d] = percCaptaDia[cc,a,re,gv,ds,d] * (1-percCaptaCiclo[cc,a,re,gv,ds]);
+	end;
+	/* Junta os dois*/
+	diaCapta = (setof{d in diaCaptaCC} <d+1>) union diaCapta;
+
+	for{<cc,a,re,gv,ds> in CaptaDiaCCSet, d in diaCaptaCC: <cc,a,re,gv,ds> in CaptaDiaSet} do;
+		percCaptaDia[cc,a,re,gv,ds,d+1] = percCaptaDiaCC[cc,a,re,gv,ds,d] * percCaptaCiclo[cc,a,re,gv,ds];
+	end;
+	/* Ajusta o calendário*/
+	num minCapta;
+	for{<cc,a,re,gv,ds> in CaptaDiaCCSet: <cc,a,re,gv,ds> in CaptaDiaSet} do;
+		minCapta = min{d in diaCapta: percCaptaDia[cc,a,re,gv,ds,d]~=0} d-1;
+		abreCiclo[cc,a,re,gv] = abreCiclo[cc,a,re,gv] + minCapta;
+	end;
+
+/* Carrega RELACAO_DIA_CC*/
+	set<num,num,num,num,num> RelDiaCCSet;
+	set diaRelCC = {-10..-1};
+	num percRelDiaCC{RelDiaCCSet,diaRelCC};
+	read data simula.RELACAO_DIA_CC into RelDiaCCSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA]
+	{dia in diaRelCC} <percRelDiaCC[ciclo,ano,cod_re,cod_gv,dia_semana,dia] = col(compress("I" || put(dia,8.0)))>;
+/*	print percRelDiaCC;*/
+/*	for{<cc,ano,re,gv,cv> in RelDiaCCSet}*/
+/*		put percRelDiaCC[cc,ano,re,gv,cv,-1]=;*/
+
+/* Carrega RELACAO_ITEM_DIA_CC*/
+	set<num,num,num,num,num> RelItemDiaCCSet;
+	num percRelItemDiaCC{RelItemDiaCCSet,diaRelCC};
+	read data simula.RELACAO_ITEM_DIA_CC into RelItemDiaCCSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA]
+	{dia in diaRelCC} <percRelItemDiaCC[ciclo,ano,cod_re,cod_gv,dia_semana,dia] = col(compress("I" || put(dia,8.0)))>;
+/*	print percRelItemDiaCC;*/
+/*	for{<cc,ano,re,gv,cv> in RelItemDiaCCSet}*/
+/*		put percRelItemDiaCC[cc,ano,re,gv,cv,-1]=;*/
+
+	/* Junta os dois - */
+	diaRel = (setof{d in diaRelCC} <d+1>) union diaRel;
+	for{<cc,a,re,gv,ds> in RelDiaCCSet, d in diaRelCC: <cc,a,re,gv,ds> in RelDiaSet} do;
+		percRelDia[cc,a,re,gv,ds,d+1] = percRelDiaCC[cc,a,re,gv,ds,d];
+	end;
+	for{<cc,a,re,gv,ds> in RelItemDiaCCSet, d in diaRelCC: <cc,a,re,gv,ds> in RelItemDiaSet} do;
+		percRelItemDia[cc,a,re,gv,ds,d+1] = percRelItemDiaCC[cc,a,re,gv,ds,d];	
+	end;
+
+
+%mend AjustaCalendario;
+
 /******************** CLASSE Comercial *********************/
 
 /* Public Comercial.init()*/
@@ -70,15 +134,12 @@ options mprint symbolgen mlogic;
 	num reGV{gvSet} init 0;
 	for {<st,zn,di> in EstrComSet}
 		reGV[gvEC[st,zn,di]] = reEC[st,zn,di];
-	num cicloGV{gvSet,Dias} init 0;
-	num anoGV{gvSet,Dias} init 0;
+	set<num,num> cicloAnoGV{gvSet,Dias} init {};
 	for{<ciclo,ano> in DemandaSet, gv in gvSet} do;
 		for{d in Dias: d in abreCiclo[ciclo,ano,reGV[gv],gv]..(fechaCiclo[ciclo,ano,reGV[gv],gv])} do;
-			cicloGV[gv,d] = ciclo;
-			anoGV[gv,d] = ano;
+			cicloAnoGV[gv,d] = cicloAnoGV[gv,d] union {<ciclo,ano>};
 		end;
 	end;
-/*	print anoGV cicloGV;*/
 
 /********************** Faz percentual do setor/zoneamento na região ************************/
 	set RegiaoSet = setof{<st,zn,di> in EstrComSet} <reEC[st,zn,di]>;
@@ -88,6 +149,7 @@ options mprint symbolgen mlogic;
 
 /*	print percCNSetReg;*/
 %mend Comercial_init;
+
 /******************** CLASSE Logistica *********************/
 
 %macro Logistica_init;
@@ -99,10 +161,10 @@ options mprint symbolgen mlogic;
 
 
 /******************* Cria conjunto de setor/zoneamento para um CD/Dia **************/
-	set<num,num,num,str> sepSet init {};
+	set<num,num,num,num,num,str> sepSet init {};
 	for{d in Dias, <cd,st,di> in CDSetor: cd in CDSet and d>=di and d<=dataFinCS[cd,st,di]}
-		for{zn in zoneSetorSet[st]}
-			sepSet = sepSet union {<cd,d,st,zn>};
+		for{zn in zoneSetorSet[st], <gv,sdi,sdf> in gvSetor[st], <cc,a> in cicloAnoGV[(gv),(d)]: d>=sdi and d<=sdf}
+			sepSet = sepSet union {<cd,cc,a,d,st,zn>};
 
 /* Variáveis privadas*/
 	num lresto, lsep, ldia, lhora, lDiaColeta, lHoraColeta, lns, lnsu;
@@ -137,23 +199,20 @@ options mprint symbolgen mlogic;
 /* Calcula a demanda0*/
 /* Entrada cd,dia,st,zn*/
 /*	put cd= dia= st= zn=;*/
-	for{<gv,di1,df1> in gvSetor[st]: dia>=di1 and dia<=df1} lgv=gv;
-	lre = reGV[lgv];
-	lciclo = cicloGV[lgv,dia];
+	lre = reGV[gv];
 	lped = 0; lvol=0; litem = 0;
-	if lciclo ~= 0 then do;
-		lano = anoGV[lgv,dia];
-		ldiasciclo = fechaCiclo[lciclo,lano,lre,lgv]-abreCiclo[lciclo,lano,lre,lgv];
-		lestr = estrCiclo[lciclo,lano];
-		ldiacc = dia - abreCiclo[lciclo,lano,lre,lgv] + 1;
-		ldowcc = weekday(abreCiclo[lciclo,lano,lre,lgv]);
+	if ciclo ~= 0 then do;
+		ldiasciclo = fechaCiclo[ciclo,ano,lre,gv]-abreCicloOrg[ciclo,ano,lre,gv];
+		lestr = estrCiclo[ciclo,ano];
+		ldiacc = dia - abreCicloOrg[ciclo,ano,lre,gv] + 1;
+		ldowcc = weekday(abreCicloOrg[ciclo,ano,lre,gv]);
 		/* Calcula número de pedidos no dia*/
-		lped = demPedido[lciclo,lano,lre];
+		lped = demPedido[ciclo,ano,lre];
 		lped = lped * percCNSetReg[st,zn];
 		lped = lped * percVarDiasCiclo[ldiasciclo];
-		lped = lped * percCaptaDia[lciclo,lano,lre,lgv,ldowcc,ldiacc];
-		lvol = lped * percRelDia[lciclo,lano,lre,lgv,ldowcc,ldiacc];
-		litem = lped * percRelItemDia[lciclo,lano,lre,lgv,ldowcc,ldiacc];
+		lped = lped * percCaptaDia[ciclo,ano,lre,gv,ldowcc,ldiacc];
+		lvol = lped * percRelDia[ciclo,ano,lre,gv,ldowcc,ldiacc];
+		litem = lped * percRelItemDia[ciclo,ano,lre,gv,ldowcc,ldiacc];
 	end;
 %mend Logistica_demanda0;
 
@@ -188,21 +247,20 @@ options mprint symbolgen mlogic;
 %macro Calendarizacao_separa;
 /*	Calcula as demandas CAL para o CD/Dia*/
 	/* Faz conjunto de st,zn,rt calendarizados no CD/Dia atual*/
-	rotaCALDia = setof{<zn,rt,di,df> in znRotaCAL[cd], st in setorZoneSet[zn]: 
-		dia>=di and dia<=df and <cd,dia,st,zn> in sepSet} <rt>;
 	znRotaCALDia = setof{<zn,rt,di,df> in znRotaCAL[cd], st in setorZoneSet[zn]: 
-		dia>=di and dia<=df and <cd,dia,st,zn> in sepSet} <st,zn,rt>;
+		dia>=di and dia<=df and card(slice(<cd,*,*,dia,st,zn>,sepSet))>0} <st,zn,rt>;
 
 /* Inicializa todas as estrutURas para o CD/Dia corrente*/
-	for{<st,zn,rt> in znRotaCALDia: <cd,dia,st,zn> in sepSet} do;
-		%Logistica_demanda0;
-		pedCapta_calend[cd,dia,st,zn] = lped;
-		volCapta_calend[cd,dia,st,zn] = lvol;
-		itemCapta_calend[cd,dia,st,zn] = litem;
-		volCALRota[cd,dia,rt] = volCALRota[cd,dia,rt] + lvol;
-		rotaZnDia[cd,dia,st,zn] = rt;
-		for{<gv,di,df> in gvSetor[st]: dia >= di and dia <= df}
-			gvZnDia[cd,dia,st,zn] = gv;
+	for{<st,zn,rt> in znRotaCALDia, <ciclo,ano,(st),(zn)> in slice(<cd,*,*,dia,*,*>,sepSet)} do;
+		for{<gv,di1,df1> in gvSetor[st]: dia>=di1 and dia<=df1} do;
+			%Logistica_demanda0;
+			pedCapta_calend[cd,ciclo,ano,dia,st,zn] = lped;
+			volCapta_calend[cd,ciclo,ano,dia,st,zn] = lvol;
+			itemCapta_calend[cd,ciclo,ano,dia,st,zn] = litem;
+			volCALRota[cd,dia,rt] = volCALRota[cd,dia,rt] + lvol;
+			rotaZnDia[cd,ciclo,ano,dia,st,zn] = rt;
+			gvZnDia[cd,ciclo,ano,dia,st,zn] = gv;
+		end;
 	end;
 %mend Calendarizacao_separa;
 
@@ -216,18 +274,19 @@ options mprint symbolgen mlogic;
 %macro SepDiaria_separa;
 	/* Faz separação dos volumes por hora de captação*/
 	rotaCALDia = setof{<zn,rt,di,df> in znRotaCAL[cd], st in setorZoneSet[zn]: 
-		dia>=di and dia<=df and <cd,dia,st,zn> in sepSet} <rt>;
+		dia>=di and dia<=df and card(slice(<cd,*,*,dia,st,zn>,sepSet))>0} <rt>;
 	rotaDiaria = Rotas diff rotaCALDia;
 	/* Armazena o volume diário por rota*/
-	for{rt in rotaDiaria, <st,zn> in slice(<cd,dia,*,*>,sepSet), di2 in slice(<rt,zn,*>,RotaZone): dia>=di2 and dia<=dataFinRZ[rt,zn,di2]} do;
-		%Logistica_demanda0;
-		pedCapta_diario[cd,dia,st,zn] = lped;
-		volCapta_diario[cd,dia,st,zn] = lvol;
-		itemCapta_diario[cd,dia,st,zn] = litem;
-		volDiarioRota[cd,dia,rt] = volDiarioRota[cd,dia,rt] + lvol;
-		rotaZnDia[cd,dia,st,zn] = rt;
-		for{<gv,di,df> in gvSetor[st]: dia >= di and dia <= df}
-			gvZnDia[cd,dia,st,zn] = gv;
+	for{rt in rotaDiaria, <ciclo,ano,st,zn> in slice(<cd,*,*,dia,*,*>,sepSet), di2 in slice(<rt,zn,*>,RotaZone): dia>=di2 and dia<=dataFinRZ[rt,zn,di2]} do;
+		for{<gv,di1,df1> in gvSetor[st]: dia>=di1 and dia<=df1} do;
+			%Logistica_demanda0;
+			pedCapta_diario[cd,ciclo,ano,dia,st,zn] = lped;
+			volCapta_diario[cd,ciclo,ano,dia,st,zn] = lvol;
+			itemCapta_diario[cd,ciclo,ano,dia,st,zn] = litem;
+			volDiarioRota[cd,dia,rt] = volDiarioRota[cd,dia,rt] + lvol;
+			rotaZnDia[cd,ciclo,ano,dia,st,zn] = rt;
+			gvZnDia[cd,ciclo,ano,dia,st,zn] = gv;
+		end;
 	end;
 %mend SepDiaria_separa;
 
@@ -235,17 +294,16 @@ options mprint symbolgen mlogic;
 %macro saida_detalhada;
 /* Dados detalhados para relatórios*/
 	/* Captação */
-	create data simula.saida_captacao2 from [COD_CD DATA COD_SETOR ZONEAMENTO]=
-		{<cdi,dia,st,zn> in sepSet: volCapta_calend[cdi,dia,st,zn]+volCapta_diario[cdi,dia,st,zn] > 0 and
-			gvZnDia[cdi,dia,st,zn] ~= 0} 
-		ROTA=rotaZnDia[cdi,dia,st,zn] GV=gvZnDia ITEM_CALEND=itemCapta_calend VOLUME_CALEND=volCapta_calend PEDIDO_CALEND=pedCapta_calend
+	create data simula.saida_captacao3 from [COD_CD CICLO ANO DATA COD_SETOR ZONEAMENTO]=
+		{<cdi,ciclo,ano,dia,st,zn> in sepSet: volCapta_calend[cdi,ciclo,ano,dia,st,zn]+volCapta_diario[cdi,ciclo,ano,dia,st,zn] > 0 and
+			gvZnDia[cdi,ciclo,ano,dia,st,zn] ~= 0} 
+		ROTA=rotaZnDia[cdi,ciclo,ano,dia,st,zn] GV=gvZnDia ITEM_CALEND=itemCapta_calend VOLUME_CALEND=volCapta_calend PEDIDO_CALEND=pedCapta_calend
 		ITEM_DIARIO=itemCapta_diario VOLUME_DIARIO=volCapta_diario PEDIDO_DIARIO=pedCapta_diario 
-		CICLO=cicloGV[gvZnDia[cdi,dia,st,zn],dia] ANO=anoGV[gvZnDia[cdi,dia,st,zn],dia] 
 		;
 %mend saida_detalhada;
 %macro formata_saida_detalhada;
-data simula.saida_captacao2;
-	set simula.saida_captacao2;
+data simula.saida_captacao3;
+	set simula.saida_captacao3;
 	format DATA date. 
 	ITEM_CALEND comma15.2
 	VOLUME_CALEND comma12.2
@@ -267,6 +325,8 @@ proc optmodel;
 	/* Inicialização das classes*/
 	%timing
 	put 'LEDADOS FIM';
+	%AjustaCalendario
+
 	%Comercial_init
 	%timing
 	put 'INICIALIZAÇÃO COMERCIAL FIM';
@@ -280,10 +340,9 @@ proc optmodel;
 	put 'INICIALIZAÇÃO FIM';
 	%timing
 
-	set tDias = firstDay..(firstDay+30);
+	set tDias = firstDay..(firstDay+15);
 	for{cd in CDSet} do;
 		for{dia in Dias} do;
-		/* Separa volumes calendarizados*/
 			%Calendarizacao_separa
 		end;
 		put 'Calendarização ' cd=;
@@ -294,7 +353,6 @@ proc optmodel;
 
 	for{cd in CDSet} do;
 		for{dia in Dias} do;
-		/* Separa volumes diários*/
 			%SepDiaria_separa
 		end;
 		put 'Separação Diária ' cd=;
@@ -379,7 +437,7 @@ QUIT;
 %macro rel_demanda_detalhada;
 /* Transforma o input de volume_tipo em volume/tipo*/
 data SAIDA_CAPTA_000(drop = item_calend item_diario volume_calend volume_diario pedido_calend pedido_diario);
-	set SIMULA.SAIDA_CAPTACAO2;
+	set SIMULA.saida_captacao3;
 	format TIPO_DEM $6.;
 	if volume_calend > 0 then do;
 		ITEM = item_calend;
@@ -466,7 +524,7 @@ QUIT;
 %rdd_concilia_item
 /* Junta com informações de PA e Transportadora*/
 PROC SQL;
-	CREATE TABLE SIMULA.SAIDA_CAPTACAO_DETALHADA2 AS SELECT DISTINCT 
+	CREATE TABLE SIMULA.SAIDA_CAPTACAO_DETALHADA3 AS SELECT DISTINCT 
 		t1.*, 
 		t2.COD_PA,
 		t2.PA,

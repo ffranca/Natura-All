@@ -69,7 +69,8 @@
 
 /* Carrega CAPTACAO_DIA*/
 	set<num,num,num,num,num> CaptaDiaSet;
-	set diaCapta = {1..28};
+	set<num> diaCapta;
+	diaCapta = {1..28};
 	num percCaptaDia{CaptaDiaSet,diaCapta};
 	read data simula.CAPTACAO_DIA into CaptaDiaSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA]
 	{dia in diaCapta} <percCaptaDia[ciclo,ano,cod_re,cod_gv,dia_semana,dia] = col(compress(put(dia,8.0)))>;
@@ -85,7 +86,8 @@
 
 /* Carrega RELACAO_DIA*/
 	set<num,num,num,num,num> RelDiaSet;
-	set diaRel = {1..28};
+	set<num> diaRel;
+	diaRel = {1..28};
 	num percRelDia{RelDiaSet,diaRel};
 	read data simula.RELACAO_DIA into RelDiaSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA]
 	{dia in diaRel} <percRelDia[ciclo,ano,cod_re,cod_gv,dia_semana,dia] = col(compress(put(dia,8.0)))>;
@@ -105,10 +107,11 @@
 /* Carrega CALENDARIO*/
 	set<num,num,num,num> Calendario;
 	num abreCiclo{Calendario};
+	num abreCicloOrg{Calendario};
 	num fechaCiclo{Calendario};
 	str estrategiaCal{Calendario};
 	read data simula.CALENDARIO into Calendario=[CICLO ANO COD_RE COD_GV]
-		abreCiclo=ABERTURA fechaCiclo=FECHAMENTO estrategiaCal=ESTRATEGIA;
+		abreCiclo=ABERTURA abreCicloOrg=ABERTURA fechaCiclo=FECHAMENTO estrategiaCal=ESTRATEGIA;
 /*	print abreCiclo fechaCiclo;*/
 
 /* Carrega CALENDARIZACAO*/
