@@ -15,7 +15,7 @@ libname SIMULA "F:\data\natura\Balanceamento\PLANEJAMENTO_DSC";
 /*%let CLASS_PATH= C:\Users\Fabio\Google Drive\Projetos\Natura\Balanceamento\Programas\v1.01;*/
 %let CLASS_PATH=F:\data\natura\Balanceamento\balanceamento_compartilhado\REPOSITORIO STP;
 options mprint symbolgen mlogic;
-%include "&CLASS_PATH/CPTLeDados_v2.sas";
+%include "&CLASS_PATH/CPTLeDados_v21.sas";
 %include "&CLASS_PATH/CPTLog_v2.sas";
 
 
