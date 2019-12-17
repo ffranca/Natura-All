@@ -356,6 +356,13 @@ PROC SQL;
           t1.'26'n as d26, 
           t1.'27'n as d27, 
           t1.'28'n as d28, 
+          t1.'29'n as d29, 
+          t1.'30'n as d30, 
+          t1.'31'n as d31, 
+          t1.'32'n as d32, 
+          t1.'33'n as d33, 
+          t1.'34'n as d34, 
+          t1.'35'n as d35, 
           t2.ABERTURA, 
           t2.FECHAMENTO
       FROM SIMULA.CAPTACAO_DIA t1, SIMULA.CALENDARIO t2
@@ -364,9 +371,9 @@ PROC SQL;
 QUIT;
 data LOG14A_002;
 	set LOG14A_001;
-	array dia(28) d1-d28;
+	array dia(35) d1-d35;
 	count = 0;
-	do i=1 to 28;
+	do i=1 to 35;
 		if dia[i] ~= 0 then count = count + 1;
 	end;
 	if count ~= (fechamento - abertura + 1) then output;
@@ -431,9 +438,9 @@ quit;
 /*Log 16: CAPTACAO_DIA	CAPTACAO_DIA	ERRO	Captação total dierente de 100%*/
 data LOG16_001;
 	set LOG14A_001;
-	array dia(28) d1-d28;
+	array dia(35) d1-d35;
 	total = 0;
-	do i=1 to 28;
+	do i=1 to 35;
 		total = total + dia[i];
 	end;
 	if abs(total - 1) >= 0.01 then output;
@@ -1105,7 +1112,14 @@ quit;
 			'25'n NUM FORMAT=BEST12.,
 			'26'n NUM FORMAT=BEST12.,
 			'27'n NUM FORMAT=BEST12.,
-			'28'n NUM FORMAT=BEST12.);
+			'28'n NUM FORMAT=BEST12., 
+			'29'n NUM FORMAT=BEST12.,
+			'30'n NUM FORMAT=BEST12.,
+			'31'n NUM FORMAT=BEST12.,
+			'32'n NUM FORMAT=BEST12.,
+			'33'n NUM FORMAT=BEST12.,
+			'34'n NUM FORMAT=BEST12.,
+			'35'n NUM FORMAT=BEST12.);
 	quit;
 	%log_verificaTabela(SIMULA,CAPTACAO_DIA,erro,CAPTACAO_DIA)
 	/* RELACAO_DIA = CAPTACAO_DIA*/
