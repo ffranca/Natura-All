@@ -68,9 +68,10 @@
 /*	print dataFinRT;*/
 
 /* Carrega CAPTACAO_DIA*/
+	num maxDiasCiclo = 35;
 	set<num,num,num,num,num> CaptaDiaSet;
 	set<num> diaCapta;
-	diaCapta = {1..28};
+	diaCapta = {1..maxDiasCiclo};
 	num percCaptaDia{CaptaDiaSet,diaCapta};
 	read data simula.CAPTACAO_DIA into CaptaDiaSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA]
 	{dia in diaCapta} <percCaptaDia[ciclo,ano,cod_re,cod_gv,dia_semana,dia] = col(compress(put(dia,8.0)))>;
@@ -87,7 +88,7 @@
 /* Carrega RELACAO_DIA*/
 	set<num,num,num,num,num> RelDiaSet;
 	set<num> diaRel;
-	diaRel = {1..28};
+	diaRel = {1..maxDiasCiclo};
 	num percRelDia{RelDiaSet,diaRel};
 	read data simula.RELACAO_DIA into RelDiaSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA]
 	{dia in diaRel} <percRelDia[ciclo,ano,cod_re,cod_gv,dia_semana,dia] = col(compress(put(dia,8.0)))>;
