@@ -16,6 +16,7 @@ libname SIMULA "F:\data\natura\Balanceamento\PLANEJAMENTO_DSC";
 %let CLASS_PATH=F:\data\natura\Balanceamento\balanceamento_compartilhado\REPOSITORIO STP;
 /*options mprint symbolgen mlogic;*/
 %include "&CLASS_PATH/CPTLeDados_v2.2.sas";
+%include "&CLASS_PATH/CPTLog_v2.sas";
 
 %macro timing;
 	current = time();
