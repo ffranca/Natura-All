@@ -67,14 +67,14 @@
 	read data simula.ROTA_TRANSPORTADORA_FILIAL into RotaTransp=[TRANSPORTADORA FILIAL ROTA DATA_INI] dataFinRT=DATA_FIN;
 /*	print dataFinRT;*/
 
-/* Carrega CAPTACAO_DIA*/
+/* Carrega CAPTACAO_DIA_SETOR*/
 	num maxDiasCiclo = 35;
-	set<num,num,num,num,num> CaptaDiaSet;
+	set<num,num,num,num> CaptaDiaSet;
 	set<num> diaCapta;
 	diaCapta = {1..maxDiasCiclo};
 	num percCaptaDia{CaptaDiaSet,diaCapta};
-	read data simula.CAPTACAO_DIA into CaptaDiaSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA]
-	{dia in diaCapta} <percCaptaDia[ciclo,ano,cod_re,cod_gv,dia_semana,dia] = col(compress(put(dia,8.0)))>;
+	read data simula.CAPTACAO_DIA_SETOR into CaptaDiaSet=[CICLO ANO COD_SETOR DIA_SEMANA]
+	{dia in diaCapta} <percCaptaDia[ciclo,ano,cod_setor,dia_semana,dia] = col(compress(put(dia,8.0)))>;
 /*	print percCaptaDia;*/
 /*	for{<cc,ano,re,gv,cv> in CaptaDiaSet}*/
 /*		put percCaptaDia[cc,ano,re,gv,cv,1]=;*/
@@ -85,33 +85,33 @@
 	read data simula.CPT_PESO_DIAS_CICLO into PesoDiasCicloSet=[DIAS_CICLO] percVarDiasCiclo=VARIACAO_DEMANDA;
 /*	print percVarDiasCiclo;*/
 
-/* Carrega RELACAO_DIA*/
-	set<num,num,num,num,num> RelDiaSet;
+/* Carrega RELACAO_DIA_SETOR*/
+	set<num,num,num,num> RelDiaSet;
 	set<num> diaRel;
 	diaRel = {1..maxDiasCiclo};
 	num percRelDia{RelDiaSet,diaRel};
-	read data simula.RELACAO_DIA into RelDiaSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA]
-	{dia in diaRel} <percRelDia[ciclo,ano,cod_re,cod_gv,dia_semana,dia] = col(compress(put(dia,8.0)))>;
+	read data simula.RELACAO_DIA_SETOR into RelDiaSet=[CICLO ANO COD_SETOR DIA_SEMANA]
+	{dia in diaRel} <percRelDia[ciclo,ano,cod_setor,dia_semana,dia] = col(compress(put(dia,8.0)))>;
 /*	print percRelDia;*/
 /*	for{<cc,ano,re,gv,cv> in RelDiaSet}*/
 /*		put percRelDia[cc,ano,re,gv,cv,1]=;*/
 
-/* Carrega RELACAO_ITEM_DIA*/
-	set<num,num,num,num,num> RelItemDiaSet;
+/* Carrega RELACAO_ITEM_DIA_SETOR*/
+	set<num,num,num,num> RelItemDiaSet;
 	num percRelItemDia{RelItemDiaSet,diaRel};
-	read data simula.RELACAO_ITEM_DIA into RelItemDiaSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA]
-	{dia in diaRel} <percRelItemDia[ciclo,ano,cod_re,cod_gv,dia_semana,dia] = col(compress(put(dia,8.0)))>;
+	read data simula.RELACAO_ITEM_DIA_SETOR into RelItemDiaSet=[CICLO ANO COD_SETOR DIA_SEMANA]
+	{dia in diaRel} <percRelItemDia[ciclo,ano,cod_setor,dia_semana,dia] = col(compress(put(dia,8.0)))>;
 /*	print percRelDia;*/
 /*	for{<cc,ano,re,gv,cv> in RelItemDiaSet}*/
 /*		put percRelDia[cc,ano,re,gv,cv,1]=;*/
 
-/* Carrega CALENDARIO*/
-	set<num,num,num,num> Calendario;
+/* Carrega CALENDARIO_SETOR*/
+	set<num,num,num> Calendario;
 	num abreCiclo{Calendario};
 	num abreCicloOrg{Calendario};
 	num fechaCiclo{Calendario};
 	str estrategiaCal{Calendario};
-	read data simula.CALENDARIO into Calendario=[CICLO ANO COD_RE COD_GV]
+	read data simula.CALENDARIO_SETOR into Calendario=[CICLO ANO COD_SETOR]
 		abreCiclo=ABERTURA abreCicloOrg=ABERTURA fechaCiclo=FECHAMENTO estrategiaCal=ESTRATEGIA;
 /*	print abreCiclo fechaCiclo;*/
 
@@ -132,6 +132,37 @@
 	for{<z,di> in CalendSet, d in 1..7}
 		if tempCalendDOW[z,di,d] ~= '' then calendDOW[z,di,d] = 1;
 /*	print calendDOW;*/
+
+/* Carrega CAPTACAO_DIA_CC_SETOR*/
+	set<num,num,num,num,num> CaptaDiaCCSet;
+	set diaCaptaCC = {-20..-1};
+	num percCaptaCiclo{CaptaDiaCCSet};
+	num percCaptaDiaCC{CaptaDiaCCSet,diaCaptaCC};
+	num pedCC{CaptaDiaCCSet,diaCaptaCC} init 0;
+	read data simula.CAPTACAO_DIA_CC_SETOR into CaptaDiaCCSet=[CICLO ANO COD_SETOR DIA_SEMANA DATA_EVENTO] percCaptaCiclo=perc_ciclo
+	{dia in diaCaptaCC} <percCaptaDiaCC[ciclo,ano,cod_setor,dia_semana,data_evento,dia] = col(compress("I" || put(dia,8.0)))>;
+/*	print percCaptaDiaCC;*/
+/*	for{<cc,ano,re,gv,cv> in CaptaDiaCCSet}*/
+/*		put percCaptaDiaCC[cc,ano,re,gv,cv,-1]=;*/
+
+/* Carrega RELACAO_DIA_CC_SETOR*/
+	set<num,num,num,num> RelDiaCCSet;
+	set diaRelCC = {-20..-1};
+	num percRelDiaCC{RelDiaCCSet,diaRelCC};
+	read data simula.RELACAO_DIA_CC_SETOR into RelDiaCCSet=[CICLO ANO COD_SETOR DIA_SEMANA]
+	{dia in diaRelCC} <percRelDiaCC[ciclo,ano,cod_setor,dia_semana,dia] = col(compress("I" || put(dia,8.0)))>;
+/*	print percRelDiaCC;*/
+/*	for{<cc,ano,re,gv,cv> in RelDiaCCSet}*/
+/*		put percRelDiaCC[cc,ano,re,gv,cv,-1]=;*/
+
+/* Carrega RELACAO_ITEM_DIA_CC_SETOR*/
+	set<num,num,num,num> RelItemDiaCCSet;
+	num percRelItemDiaCC{RelItemDiaCCSet,diaRelCC};
+	read data simula.RELACAO_ITEM_DIA_CC_SETOR into RelItemDiaCCSet=[CICLO ANO COD_SETOR DIA_SEMANA]
+	{dia in diaRelCC} <percRelItemDiaCC[ciclo,ano,cod_setor,dia_semana,dia] = col(compress("I" || put(dia,8.0)))>;
+/*	print percRelItemDiaCC;*/
+/*	for{<cc,ano,re,gv,cv> in RelItemDiaCCSet}*/
+/*		put percRelItemDiaCC[cc,ano,re,gv,cv,-1]=;*/
 
 /* Carrega FERIADO*/
 	set<num,num> Feriado;
