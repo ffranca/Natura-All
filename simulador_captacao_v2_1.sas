@@ -14,10 +14,8 @@ libname SIMULA "F:\data\natura\Balanceamento\PLANEJAMENTO_DSC";
 /* Classe Main*/
 /*%let CLASS_PATH= C:\Users\Fabio\Google Drive\Projetos\Natura\Balanceamento\Programas\v1.01;*/
 %let CLASS_PATH=F:\data\natura\Balanceamento\balanceamento_compartilhado\REPOSITORIO STP;
-options mprint symbolgen mlogic;
-%include "&CLASS_PATH/CPTLeDados_v21.sas";
-%include "&CLASS_PATH/CPTLog_v2.sas";
-
+/*options mprint symbolgen mlogic;*/
+%include "&CLASS_PATH/CPTLeDados_v2.2.sas";
 
 %macro timing;
 	current = time();
@@ -26,57 +24,24 @@ options mprint symbolgen mlogic;
 
 %macro AjustaCalendario;
 /* Faz calendário, captação e relações únicos incluindo períodos de lançamentos (compras com Cartão de Crédito)*/
-
-/* Carrega CAPTACAO_DIA_CC*/
-	set<num,num,num,num,num,num> CaptaDiaCCSet;
-	set diaCaptaCC = {-20..-1};
-	num percCaptaCiclo{CaptaDiaCCSet};
-	num percCaptaDiaCC{CaptaDiaCCSet,diaCaptaCC};
-	num pedCC{CaptaDiaCCSet,diaCaptaCC} init 0;
-	read data simula.CAPTACAO_DIA_CC into CaptaDiaCCSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA DATA_EVENTO] percCaptaCiclo=perc_ciclo
-	{dia in diaCaptaCC} <percCaptaDiaCC[ciclo,ano,cod_re,cod_gv,dia_semana,data_evento,dia] = col(compress("I" || put(dia,8.0)))>;
-/*	print percCaptaDiaCC;*/
-/*	for{<cc,ano,re,gv,cv> in CaptaDiaCCSet}*/
-/*		put percCaptaDiaCC[cc,ano,re,gv,cv,-1]=;*/
-
 	/* Ajusta percentual de captação do evento na curva de antecipação*/
-	for{<cc,a,re,gv,ds,dt> in CaptaDiaCCSet, d in diaCaptaCC: <(cc),(a),(re),(gv),(ds)> in CaptaDiaSet} do;
-			percCaptaDiaCC[cc,a,re,gv,ds,dt,d] = percCaptaDiaCC[cc,a,re,gv,ds,dt,d] * 
-				(percCaptaCiclo[cc,a,re,gv,ds,dt]) * percCaptaDia[cc,a,re,gv,ds,dt-abreCiclo[cc,a,re,gv]+1];
+	for{<cc,a,st,ds,dt> in CaptaDiaCCSet, d in diaCaptaCC: <(cc),(a),(st),(ds)> in CaptaDiaSet} do;
+			percCaptaDiaCC[cc,a,st,ds,dt,d] = percCaptaDiaCC[cc,a,st,ds,dt,d] * 
+				(percCaptaCiclo[cc,a,st,ds,dt]) * percCaptaDia[cc,a,st,ds,dt-abreCiclo[cc,a,st]+1];
 	end;
 	
 	/* Ajusta percentual de captação do evento na curva dentro do ciclo*/
-	for{<cc,a,re,gv,ds,dt> in CaptaDiaCCSet, d in diaCapta: <(cc),(a),(re),(gv),(ds)> in CaptaDiaSet and
-			abreCiclo[cc,a,re,gv]+d-1 = dt} do;
-			percCaptaDia[cc,a,re,gv,ds,d] = percCaptaDia[cc,a,re,gv,ds,d] * (1-percCaptaCiclo[cc,a,re,gv,ds,dt]);
+	for{<cc,a,st,ds,dt> in CaptaDiaCCSet, d in diaCapta: <(cc),(a),(st),(ds)> in CaptaDiaSet and
+			abreCiclo[cc,a,st]+d-1 = dt} do;
+			percCaptaDia[cc,a,st,ds,d] = percCaptaDia[cc,a,st,ds,d] * (1-percCaptaCiclo[cc,a,st,ds,dt]);
 	end;
 
 	/* Ajusta o calendário*/
 	num minCapta;
-	for{<cc,a,re,gv,ds,dt> in CaptaDiaCCSet} do;
-		minCapta = min{d in diaCaptaCC: percCaptaDiaCC[cc,a,re,gv,ds,dt,d]~=0} d;
-		abreCiclo[cc,a,re,gv] = abreCiclo[cc,a,re,gv] + minCapta;
+	for{<cc,a,st,ds,dt> in CaptaDiaCCSet} do;
+		minCapta = min{d in diaCaptaCC: percCaptaDiaCC[cc,a,st,ds,dt,d]~=0} d;
+		abreCiclo[cc,a,st] = abreCiclo[cc,a,st] + minCapta;
 	end;
-
-/* Carrega RELACAO_DIA_CC*/
-	set<num,num,num,num,num> RelDiaCCSet;
-	set diaRelCC = {-20..-1};
-	num percRelDiaCC{RelDiaCCSet,diaRelCC};
-	read data simula.RELACAO_DIA_CC into RelDiaCCSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA]
-	{dia in diaRelCC} <percRelDiaCC[ciclo,ano,cod_re,cod_gv,dia_semana,dia] = col(compress("I" || put(dia,8.0)))>;
-/*	print percRelDiaCC;*/
-/*	for{<cc,ano,re,gv,cv> in RelDiaCCSet}*/
-/*		put percRelDiaCC[cc,ano,re,gv,cv,-1]=;*/
-
-/* Carrega RELACAO_ITEM_DIA_CC*/
-	set<num,num,num,num,num> RelItemDiaCCSet;
-	num percRelItemDiaCC{RelItemDiaCCSet,diaRelCC};
-	read data simula.RELACAO_ITEM_DIA_CC into RelItemDiaCCSet=[CICLO ANO COD_RE COD_GV DIA_SEMANA]
-	{dia in diaRelCC} <percRelItemDiaCC[ciclo,ano,cod_re,cod_gv,dia_semana,dia] = col(compress("I" || put(dia,8.0)))>;
-/*	print percRelItemDiaCC;*/
-/*	for{<cc,ano,re,gv,cv> in RelItemDiaCCSet}*/
-/*		put percRelItemDiaCC[cc,ano,re,gv,cv,-1]=;*/
-
 
 %mend AjustaCalendario;
 
@@ -87,8 +52,8 @@ options mprint symbolgen mlogic;
 /* Calcula o horizonte de simulação em Dias*/
 /* Faz intersecção de calendãrio com demanda com CDs ativos*/
 	set Dias init {};
-	Dias = (min{<ciclo,ano> in DemandaSet, <cc,a,re,gv> in Calendario: ciclo=cc and a=ano} abreCiclo[cc,a,re,gv])
-			..(max{<ciclo,ano> in DemandaSet, <cc,a,re,gv> in Calendario: ciclo=cc and a=ano} fechaCiclo[cc,a,re,gv]);
+	Dias = (min{<ciclo,ano> in DemandaSet, <cc,a,st> in Calendario: ciclo=cc and a=ano} abreCiclo[cc,a,st])
+			..(max{<ciclo,ano> in DemandaSet, <cc,a,st> in Calendario: ciclo=cc and a=ano} fechaCiclo[cc,a,st]);
 	Dias = Dias inter union{cd in CDSet} {dataIniCD[cd]..dataFinCD[cd]};
 /*	put Dias=;*/
 	num firstDay = min{d in Dias} d;
@@ -108,6 +73,7 @@ options mprint symbolgen mlogic;
 		reSetor[st] = reEC[st,zn,di];
 		URSetor[st] = UREC[st,zn,di];
 	end;
+
 /*	print reSetor URSetor;*/
 
 /* Fazer conjunto de GVs para um setor com a data ini e fim da virada de chave*/
@@ -120,18 +86,16 @@ options mprint symbolgen mlogic;
 
 	/* Faz ciclos de estratégia*/
 	str estrCiclo{DemandaSet};
-	for{<cc,ano,re,gv> in Calendario: <cc,ano> in DemandaSet}
-		estrCiclo[cc,ano] = estrategiaCal[cc,ano,re,gv];
+	for{<cc,ano,st> in Calendario: <cc,ano> in DemandaSet}
+		estrCiclo[cc,ano] = estrategiaCal[cc,ano,st];
 
-/********************** Faz ciclo ano por gv ************************/
-	set gvSet = setof{<st,zn,di> in EstrComSet}<gvEC[st,zn,di]>;
-	num reGV{gvSet} init 0;
-	for {<st,zn,di> in EstrComSet}
-		reGV[gvEC[st,zn,di]] = reEC[st,zn,di];
-	set<num,num> cicloAnoGV{gvSet,Dias} init {};
-	for{<ciclo,ano> in DemandaSet, gv in gvSet} do;
-		for{d in Dias: d in abreCiclo[ciclo,ano,reGV[gv],gv]..(fechaCiclo[ciclo,ano,reGV[gv],gv])} do;
-			cicloAnoGV[gv,d] = cicloAnoGV[gv,d] union {<ciclo,ano>};
+/********************** Faz ciclo ano por setor ************************/
+	set stSet = setof{<st,zn,di> in EstrComSet}<st>;
+
+	set<num,num> cicloAnoSetor{stSet,Dias} init {};
+	for{<ciclo,ano> in DemandaSet, st in stSet} do;
+		for{d in Dias: d in abreCiclo[ciclo,ano,st]..(fechaCiclo[ciclo,ano,st])} do;
+			cicloAnoSetor[st,d] = cicloAnoSetor[st,d] union {<ciclo,ano>};
 		end;
 	end;
 
@@ -157,7 +121,7 @@ options mprint symbolgen mlogic;
 /******************* Cria conjunto de setor/zoneamento para um CD/Dia **************/
 	set<num,num,num,num,num,str> sepSet init {};
 	for{d in Dias, <cd,st,di> in CDSetor: cd in CDSet and d>=di and d<=dataFinCS[cd,st,di]}
-		for{zn in zoneSetorSet[st], <gv,sdi,sdf> in gvSetor[st], <cc,a> in cicloAnoGV[(gv),(d)]: d>=sdi and d<=sdf}
+		for{zn in zoneSetorSet[st], <gv,sdi,sdf> in gvSetor[st], <cc,a> in cicloAnoSetor[(st),(d)]: d>=sdi and d<=sdf}
 			sepSet = sepSet union {<cd,cc,a,d,st,zn>};
 
 /* Variáveis privadas*/
@@ -193,32 +157,32 @@ options mprint symbolgen mlogic;
 /* Calcula a demanda0*/
 /* Entrada cd,dia,st,zn*/
 /*	put cd= dia= st= zn=;*/
-	lre = reGV[gv];
+	lre = reSetor[st];
 	lped = 0; lvol=0; litem = 0;
 	if ciclo ~= 0 then do;
-		ldiasciclo = fechaCiclo[ciclo,ano,lre,gv]-abreCicloOrg[ciclo,ano,lre,gv];
+		ldiasciclo = fechaCiclo[ciclo,ano,st]-abreCicloOrg[ciclo,ano,st];
 		lestr = estrCiclo[ciclo,ano];
-		ldiacc = dia - abreCicloOrg[ciclo,ano,lre,gv] + 1;
+		ldiacc = dia - abreCicloOrg[ciclo,ano,st] + 1;
 		if ldiacc > 0 then do;
-			ldowcc = weekday(abreCicloOrg[ciclo,ano,lre,gv]);
+			ldowcc = weekday(abreCicloOrg[ciclo,ano,st]);
 			/* Calcula número de pedidos no dia*/
 			lped = demPedido[ciclo,ano,lre];
 			lped = lped * percCNSetReg[st,zn];
 			lped = lped * percVarDiasCiclo[ldiasciclo];
-			lped = lped * percCaptaDia[ciclo,ano,lre,gv,ldowcc,ldiacc];
-			lvol = lped * percRelDia[ciclo,ano,lre,gv,ldowcc,ldiacc];
-			litem = lped * percRelItemDia[ciclo,ano,lre,gv,ldowcc,ldiacc];
+			lped = lped * percCaptaDia[ciclo,ano,st,ldowcc,ldiacc];
+			lvol = lped * percRelDia[ciclo,ano,st,ldowcc,ldiacc];
+			litem = lped * percRelItemDia[ciclo,ano,st,ldowcc,ldiacc];
 		end;
 	end;
 	/* Verifica se evento na GV no dia*/
-	for{<(ciclo),(ano),(lre),(gv),ds,dt> in CaptaDiaCCSet, dcc in diaCaptaCC: 
-			percCaptaDiaCC[ciclo,ano,lre,gv,ds,dt,dcc]>0 and dia-dt=dcc} do;
-		put percCaptaDiaCC[ciclo,ano,lre,gv,ds,dt,dcc]=;
-		lped2 = demPedido[ciclo,ano,lre]*percCNSetReg[st,zn]*percVarDiasCiclo[ldiasciclo]*percCaptaDiaCC[ciclo,ano,lre,gv,ds,dt,dcc];
-		pedCC[ciclo,ano,lre,gv,ds,dt,dcc] = pedCC[ciclo,ano,lre,gv,ds,dt,dcc] + lped2;	
+	for{<(ciclo),(ano),(st),ds,dt> in CaptaDiaCCSet, dcc in diaCaptaCC: 
+			percCaptaDiaCC[ciclo,ano,st,ds,dt,dcc]>0 and dia-dt=dcc} do;
+		put percCaptaDiaCC[ciclo,ano,st,ds,dt,dcc]=;
+		lped2 = demPedido[ciclo,ano,lre]*percCNSetReg[st,zn]*percVarDiasCiclo[ldiasciclo]*percCaptaDiaCC[ciclo,ano,st,ds,dt,dcc];
+		pedCC[ciclo,ano,st,ds,dt,dcc] = pedCC[ciclo,ano,st,ds,dt,dcc] + lped2;	
 		lped = lped + lped2;
-		lvol = lvol + lped2 * percRelDiaCC[ciclo,ano,lre,gv,ds,dcc];
-		litem = litem + lped2 * percRelItemDiaCC[ciclo,ano,lre,gv,ds,dcc];
+		lvol = lvol + lped2 * percRelDiaCC[ciclo,ano,st,ds,dcc];
+		litem = litem + lped2 * percRelItemDiaCC[ciclo,ano,st,ds,dcc];
 	end;
 %mend Logistica_demanda0;
 
@@ -304,8 +268,8 @@ options mprint symbolgen mlogic;
 		ROTA=rotaZnDia[cdi,ciclo,ano,dia,st,zn] GV=gvZnDia ITEM_CALEND=itemCapta_calend VOLUME_CALEND=volCapta_calend PEDIDO_CALEND=pedCapta_calend
 		ITEM_DIARIO=itemCapta_diario VOLUME_DIARIO=volCapta_diario PEDIDO_DIARIO=pedCapta_diario 
 		;
-	create data simula.saida_evento3 from [CICLO ANO COD_RE COD_GV DIA_SEMANA DATA_EVENTO DIA]=
-		{<cc,a,re,gv,ds,dt> in CaptaDiaCCSet, d in diaCaptaCC: pedCC[cc,a,re,gv,ds,dt,d]>0} PEDIDOS_EVENTO=pedCC;
+	create data simula.saida_evento3 from [CICLO ANO COD_SETOR DIA_SEMANA DATA_EVENTO DIA]=
+		{<cc,a,st,ds,dt> in CaptaDiaCCSet, d in diaCaptaCC: pedCC[cc,a,st,ds,dt,d]>0} PEDIDOS_EVENTO=pedCC;
 %mend saida_detalhada;
 
 %macro formata_saida_detalhada;
