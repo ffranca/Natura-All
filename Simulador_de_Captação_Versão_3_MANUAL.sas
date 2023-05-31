@@ -51,7 +51,7 @@ PROC SQL;
             (MIN(t1.DATA_INI)) FORMAT=DATE9. AS SETOR_DATA_INI, 
           /* SETOR_DATA_FIN */
             (MAX(t1.DATA_FIN)) FORMAT=DATE9. AS SETOR_DATA_FIN
-      FROM SIMULA.ESTRUTURA_COMERCIAL t1
+      FROM WORK.ESTRUTURA_COMERCIAL t1
       GROUP BY t1.COD_SETOR,
                t1.SETOR,
                t1.ZONEAMENTO;
@@ -74,6 +74,7 @@ PROC SQL;
    CREATE TABLE WORK.ROTA_ZONEAMENTO AS 
    SELECT DISTINCT t1.ROTA, 
           t1.ZONEAMENTO, 
+          t1.PRAZO_CONTRATADO, 
           /* DATA_INI */
             (MIN(t1.DATA_INI)) FORMAT=DATE9. AS DATA_INI, 
           /* DATA_FIN */
@@ -400,7 +401,7 @@ PROC SQL;
           t1.CD, 
           t1.DATA_INI, 
           t1.DATA_FIN
-      FROM SIMULA.CD_SETOR t1 LEFT JOIN SIMULA.CD t2 ON (t1.COD_CD = t2.COD_CD)
+      FROM WORK.CD_SETOR_ZONEAMENTO t1 LEFT JOIN WORK.CD t2 ON (t1.COD_CD = t2.COD_CD)
       WHERE t2.COD_CD IS MISSING;
 QUIT;
 proc sql;
@@ -409,7 +410,7 @@ proc sql;
 			'ERRO' as TIPO, 
 			trim(setor) || ' com CD inexistente(' || compress(put(cod_cd,8.)) || ') entre ' || 
 				put(data_ini, date9.) || ' e ' || put(data_fin, date9.) as DESCRICAO,
-			'CD_SETOR' AS TABELA1,
+			'CD_SETOR_ZONEAMENTO' AS TABELA1,
 			'CD' AS TABELA2
 		from WORK.LOG20_001;
 quit;
@@ -417,13 +418,13 @@ quit;
 /*Log 21: CD_SETOR	ESTRUTURA_COMERCIAL	ERRO	Setor inexistente*/
 PROC SQL;
    CREATE TABLE WORK.LOG21_001 AS 
-   SELECT t1.COD_SETOR, 
+   SELECT DISTINCT t1.COD_SETOR, 
           t1.SETOR, 
           t1.COD_CD, 
           t1.CD, 
           t1.DATA_INI, 
           t1.DATA_FIN
-      FROM SIMULA.CD_SETOR t1 LEFT JOIN WORK.ESTRUTURA_COMERCIAL t2 ON (t1.COD_SETOR = t2.COD_SETOR)
+      FROM WORK.CD_SETOR_ZONEAMENTO t1 LEFT JOIN WORK.ESTRUTURA_COMERCIAL t2 ON (t1.COD_SETOR = t2.COD_SETOR)
       WHERE t2.COD_SETOR IS MISSING;
 QUIT;
 proc sql;
@@ -432,24 +433,24 @@ proc sql;
 			'ERRO' as TIPO, 
 			'Código do setor ' || trim(setor) || ' inexistente(' || compress(put(cod_setor,8.)) || 
 				') entre ' || put(data_ini, date9.) || ' e ' || put(data_fin, date9.) as DESCRICAO,
-			'CD_SETOR' AS TABELA1,
+			'CD_SETOR_ZONEAMENTO' AS TABELA1,
 			'ESTRUTURA_COMERCIAL' AS TABELA2
 		from WORK.LOG21_001;
 quit;
 
 /*Log 22a: CD_SETOR	ESTRUTURA_COMERCIAL	ERRO	Setor sem separação entre xx/xx/xx e xx/xx/xx*/
 /*Log 22b: CD_SETOR	ESTRUTURA_COMERCIAL	ERRO	Setor separado em mais de um CD entre xx/xx/xx e xx/xx/xx*/
-proc sort data=simula.cd_setor;
-	by cod_setor data_ini;
+proc sort data=WORK.CD_SETOR_ZONEAMENTO;
+	by cod_setor zoneamento data_ini;
 run;
 
 data log22ab_001;
-	set simula.cd_setor;
-	by cod_setor;
+	set WORK.CD_SETOR_ZONEAMENTO;
+	by cod_setor zoneamento;
 	format last_fin date9. ini_gap date9. ini_ovl date9.;
 	retain last_fin;
 
-	if first.cod_setor then
+	if first.zoneamento then
 		last_fin = data_fin;
 	else do;
 		if data_ini - last_fin > 1 then do;
@@ -471,9 +472,9 @@ proc sql;
 	insert into simula.log 
 		select 
 			'ERRO' as TIPO, 
-			'Setor ' || compress(put(cod_setor,8.)) || ' - ' || trim(setor) || ' sem separação entre ' || 
+			'Zoneamento ' || compress(put(cod_setor,8.)) || ' - ' || trim(zoneamento) || ' sem separação entre ' || 
 				put(ini_gap+1, date9.) || ' e ' || put(data_ini-1, date9.) as DESCRICAO,
-			'CD_SETOR' AS TABELA1,
+			'CD_SETOR_ZONEAMENTO' AS TABELA1,
 			'N/A' AS TABELA2
 		from log22ab_002;
 quit;
@@ -484,9 +485,9 @@ proc sql;
 	insert into simula.log 
 		select 
 			'ERRO' as TIPO, 
-			'Setor ' || compress(put(cod_setor,8.)) || ' - ' || trim(setor) || ' com cadastro duplicado entre ' || 
+			'Zoneamento ' || compress(put(cod_setor,8.)) || ' - ' || trim(zoneamento) || ' com cadastro duplicado entre ' || 
 				put(data_ini, date9.) || ' e ' || put(ini_ovl, date9.) as DESCRICAO,
-			'CD_SETOR' AS TABELA1,
+			'CD_SETOR_ZONEAMENTO' AS TABELA1,
 			'N/A' AS TABELA2
 		from log22ab_003;
 quit;
@@ -569,7 +570,7 @@ quit;
 PROC SQL;
    CREATE TABLE WORK.LOG7_001 AS 
    SELECT t1.*
-      FROM SIMULA.CALENDARIZACAO t1 LEFT JOIN SIMULA.PA_ROTA t2 ON (t1.ROTA = t2.ROTA)
+      FROM WORK.CALENDARIZACAO t1 LEFT JOIN WORK.PA_ROTA t2 ON (t1.ROTA = t2.ROTA)
       WHERE t2.ROTA IS MISSING AND t1.ROTA NOT = 0;
 QUIT;
 proc sql;
@@ -585,7 +586,7 @@ quit;
 PROC SQL;
    CREATE TABLE WORK.LOG8_001 AS 
    SELECT t1.ROTA
-      FROM SIMULA.CALENDARIZACAO t1
+      FROM WORK.CALENDARIZACAO t1
       WHERE t1.DOM IS MISSING AND t1.SEG IS MISSING AND t1.TER IS MISSING AND t1.QUA IS MISSING AND t1.QUI IS MISSING AND
             t1.SEX IS MISSING AND t1.SAB IS MISSING;
 QUIT;
@@ -602,7 +603,7 @@ quit;
 PROC SQL;
    CREATE TABLE WORK.LOG9_001 AS 
    SELECT t1.ROTA,t1.DIA_CORTE
-      FROM SIMULA.CALENDARIZACAO t1
+      FROM WORK.CALENDARIZACAO t1
       WHERE t1.DIA_CORTE NOT BETWEEN -1 AND 0;
 QUIT;
 proc sql;
@@ -619,7 +620,7 @@ quit;
 PROC SQL;
    CREATE TABLE WORK.LOG10_001 AS 
    SELECT t1.ROTA,t1.DIA_COleta
-      FROM SIMULA.CALENDARIZACAO t1
+      FROM WORK.CALENDARIZACAO t1
       WHERE t1.DIA_COLETA NOT BETWEEN 0 AND 1;
 QUIT;
 proc sql;
@@ -791,12 +792,12 @@ quit;
 %mend log_captacao_dia;
 %macro log_rota_transp_filial;
 /*AVISO	Rota sem transportadora de xx/xx/xx a xx/xx/xx*/
-proc sort data=simula.rota_transportadora_filial;
+proc sort data=work.rota_transportadora_filial;
 	by rota data_ini;
 run;
 
 data log1e2;
-	set simula.rota_transportadora_filial;
+	set work.rota_transportadora_filial;
 	by rota;
 	format last_fin date9. ini_gap date9. ini_ovl date9.;
 	retain last_fin;
@@ -847,12 +848,12 @@ quit;
 %mend log_rota_transp_filial;
 
 %macro verifica_tempo(tabela,ord1,tipo1);
-proc sort data=simula.&tabela.;
+proc sort data=work.&tabela.;
 	by &ord1. data_ini;
 run;
 
 data log1e2;
-	set simula.&tabela.;
+	set work.&tabela.;
 	by &ord1. ;
 	format last_fin date9. ini_gap date9. ini_ovl date9.;
 	retain last_fin;
@@ -998,7 +999,7 @@ PROC SQL;
 
    CREATE TABLE WORK.log_cd_001 AS 
    SELECT t1.COD_CD
-      FROM SIMULA.&tabela. t1 LEFT JOIN SIMULA.CD t2 ON (t1.COD_CD = t2.COD_CD)
+      FROM SIMULA.&tabela. t1 LEFT JOIN WORK.CD t2 ON (t1.COD_CD = t2.COD_CD)
       WHERE t2.COD_CD IS MISSING;
 QUIT;
 proc sql;
@@ -1016,7 +1017,7 @@ PROC SQL;
    CREATE TABLE WORK.LOG_cd_002 AS 
    SELECT t2.COD_CD, 
           t2.CD
-      FROM SIMULA.CD t2 LEFT JOIN SIMULA.&tabela. t1 ON (t2.COD_CD = t1.COD_CD)
+      FROM WORK.CD t2 LEFT JOIN SIMULA.&tabela. t1 ON (t2.COD_CD = t1.COD_CD)
       WHERE t1.COD_CD IS MISSING;
 QUIT;
 proc sql;
@@ -1034,7 +1035,7 @@ quit;
 PROC SQL;
    CREATE TABLE WORK.log_chv_001 AS 
    SELECT DISTINCT t1.&chave1.
-      FROM SIMULA.&tabela1. t1 
+      FROM work.&tabela1. t1 
       WHERE t1.&chave2. IS MISSING;
 QUIT;
 proc sql;
@@ -1052,12 +1053,12 @@ proc sql;
 		from WORK.log_chv_001;
 quit;
 %mend verifica_chave0;
-%macro verifica_chave1(tabela1,tabela2,chave1,tipo);
+%macro verifica_chave1(lib1,tabela1,lib2,tabela2,chave1,tipo);
 /*AVISO	chave inexistente*/
 PROC SQL;
    CREATE TABLE WORK.log_chv_001 AS 
    SELECT DISTINCT t1.&chave1.
-      FROM SIMULA.&tabela1. t1 LEFT JOIN SIMULA.&tabela2. t2 ON t1.&chave1.=t2.&chave1.
+      FROM &lib1..&tabela1. t1 LEFT JOIN &lib2..&tabela2. t2 ON t1.&chave1.=t2.&chave1.
       WHERE t2.&chave1. IS MISSING;
 QUIT;
 proc sql;
@@ -1079,7 +1080,7 @@ quit;
 PROC SQL;
    CREATE TABLE WORK.LOG_chv_002 AS 
    SELECT t2.&chave1.
-      FROM SIMULA.&tabela2. t2 LEFT JOIN SIMULA.&tabela1. t1 ON (t1.&chave1.=t2.&chave1.)
+      FROM &lib2..&tabela2. t2 LEFT JOIN &lib1..&tabela1. t1 ON (t1.&chave1.=t2.&chave1.)
       WHERE t1.&chave1. IS MISSING;
 QUIT;
 proc sql;
@@ -1181,7 +1182,7 @@ PROC SQL;
             (MIN(t1.DATA_INI)) FORMAT=DATE9. AS MIN_of_DATA_INI, 
           /* MAX_of_DATA_FIN */
             (MAX(t1.DATA_FIN)) FORMAT=DATE9. AS MAX_of_DATA_FIN
-      FROM SIMULA.&tabela1. t1
+      FROM work.&tabela1. t1
       GROUP BY t1.&chave1.;
 QUIT;
 
@@ -1192,7 +1193,7 @@ PROC SQL;
           t2.DATA_FIN, 
           t1.MIN_of_DATA_INI, 
           t1.MAX_of_DATA_FIN
-      FROM WORK.LOG_TMP2_001 t1, SIMULA.&tabela2. t2
+      FROM WORK.LOG_TMP2_001 t1, work.&tabela2. t2
       WHERE (t1.&chave1. = t2.&chave1.) order by t1.&chave1., t2.data_ini;
 QUIT;
 data log_tmp2_003;
@@ -1277,11 +1278,11 @@ quit;
 %mend verifica_tempo2;
 
 %macro log_relacao_dia;
-%verifica_chave1(RELACAO_DIA_SETOR, ESTRUTURA_COMERCIAL, COD_SETOR, AVISO);
+%verifica_chave1(simula,RELACAO_DIA_SETOR,work,ESTRUTURA_COMERCIAL, COD_SETOR, AVISO);
 %mend log_relacao_dia;
 %macro log_rota_zoneamento;
-%verifica_chave1(ROTA_ZONEAMENTO,PA_ROTA,rota);
-%verifica_chave1(ESTRUTURA_COMERCIAL,ROTA_ZONEAMENTO,zoneamento,CHAR);
+%verifica_chave1(work,ROTA_ZONEAMENTO,work,PA_ROTA,rota);
+%verifica_chave1(work,ESTRUTURA_COMERCIAL,work,ROTA_ZONEAMENTO,zoneamento,CHAR);
 %verifica_chave0(ROTA_ZONEAMENTO,zoneamento,CHAR,rota);
 %verifica_chave0(ROTA_ZONEAMENTO,rota,NUM,zoneamento);
 %verifica_tempo(ROTA_ZONEAMENTO,zoneamento,CHAR);
@@ -1383,7 +1384,7 @@ quit;
 	%log_verificaTabela(SIMULA,CALENDARIO_SETOR,erro,CALENDARIO_SETOR)	
 	/* CALENDARIZACAO*/
 	proc sql noprint;
-		create table CALENDARIZACAO ( 
+		create table CALENDARIZACAO_00 ( 
 			ROTA NUM FORMAT=BEST12.,
 			DOM CHAR(1),
 			SEG CHAR(1),
@@ -1401,7 +1402,7 @@ quit;
 			DATA_INICIO NUM FORMAT=DATE9.,
 			DATA_FINAL NUM FORMAT=DATE9.);
 	quit;
-	%log_verificaTabela(SIMULA,CALENDARIZACAO,erro,CALENDARIZACAO)
+	%log_verificaTabela(WORK,CALENDARIZACAO,erro,CALENDARIZACAO_00)
 	/* CAPTACAO_DIA*/
 	proc sql noprint;
 		create table CAPTACAO_DIA_SETOR ( 
@@ -1453,30 +1454,27 @@ quit;
 	%log_verificaTabela(SIMULA,RELACAO_ITEM_DIA_SETOR,erro,CAPTACAO_DIA_SETOR)
 	/* CD*/
 	proc sql noprint;
-		create table CD ( 
+		create table CD_00 ( 
 			COD_CD NUM FORMAT=BEST12.,
 			CD CHAR(24),
-			CIDADE CHAR(17),
-			RE CHAR(8),
 			DATA_INI NUM FORMAT=DATE9.,
 			DATA_FIN NUM FORMAT=DATE9.);
 	quit;
-	%log_verificaTabela(SIMULA,CD,erro,CD)
+	%log_verificaTabela(WORK,CD,erro,CD_00)
 	/* CD_SETOR*/
-	proc sql noprint;
-		create table CD_SETOR ( 
-			COD_RE NUM FORMAT=BEST12.,
-			RE CHAR(12),
-			COD_GV NUM FORMAT=BEST12.,
-			GV CHAR(21),
-			COD_SETOR NUM FORMAT=BEST12.,
-			SETOR CHAR(21),
-			COD_CD NUM FORMAT=BEST12.,
-			CD CHAR(24),
-			DATA_INI NUM FORMAT=DATE9.,
-			DATA_FIN NUM FORMAT=DATE9.);
+	proc sql;
+		create table CD_SETOR_ZONEAMENTO_00
+		  (
+		   COD_CD num format=BEST12. informat=BEST12.,
+		   CD char(24) format=$CHAR24. informat=$CHAR24.,
+		   COD_SETOR num format=BEST12. informat=BEST12.,
+		   SETOR char(26) format=$CHAR26. informat=$CHAR26.,
+		   ZONEAMENTO char(9) format=$CHAR9. informat=$CHAR9.,
+		   DATA_INI num format=DATE.,
+		   DATA_FIN num format=DATE.
+		  );
 	quit;
-	%log_verificaTabela(SIMULA,CD_SETOR,erro,CD_SETOR)
+	%log_verificaTabela(WORK,CD_SETOR_ZONEAMENTO,erro,CD_SETOR_ZONEAMENTO_00)
 	/* DEMANDA_ITENS*/
 	proc sql noprint;
 		create table DEMANDA_ITENS_RE ( 
@@ -1499,6 +1497,48 @@ quit;
 	%log_verificaTabela(SIMULA,DEMANDA_PEDIDOS_RE,erro,DEMANDA_PEDIDOS_RE)
 	/* ESTRUTURA_COMERCIAL*/
 	proc sql noprint;
+		create table ESTRUTURA_COMERCIAL_00 ( 
+			UR CHAR(21),
+			COD_RE NUM FORMAT=BEST12.,
+			RE CHAR(12),
+			COD_GV NUM FORMAT=BEST12.,
+			GV CHAR(21),
+			COD_SETOR NUM FORMAT=BEST12.,
+			SETOR CHAR(21),
+			UF CHAR(2),
+			NOME_UF CHAR(19),
+			CIDADE CHAR(32),
+			ZONEAMENTO CHAR(9),
+			QTD_CN NUM FORMAT=BEST12.,
+			DATA_INI NUM FORMAT=DATE9.,
+			DATA_FIN NUM FORMAT=DATE9.);
+	quit;
+	%log_verificaTabela(WORK,ESTRUTURA_COMERCIAL,erro,ESTRUTURA_COMERCIAL_00)		
+	/* FERIADO*/
+	proc sql noprint;
+		create table FERIADO ( 
+			COD_CD NUM FORMAT=BEST12.,
+			CD CHAR(24),
+			DATA NUM FORMAT=PTGDFDE9.,
+			DESCRICAO CHAR(36),
+			FOLGA_NOTURNO NUM FORMAT=BEST12.);
+	quit;
+	%log_verificaTabela(SIMULA,FERIADO,erro,FERIADO)	
+	/* ROTA_ZONEAMENTO*/
+	proc sql noprint;
+		create table ROTA_ZONEAMENTO_00 ( 
+			ROTA NUM FORMAT=BEST12.,
+			ZONEAMENTO CHAR(9),
+/*			nome_cidade CHAR(36),*/
+			PRAZO_CONTRATADO NUM FORMAT=BEST12.,
+			DATA_INI NUM FORMAT=DATE9.,
+			DATA_FIN NUM FORMAT=DATE9.);
+	quit;
+	%log_verificaTabela(WORK,ROTA_ZONEAMENTO,erro,ROTA_ZONEAMENTO_00)	
+%mend log_tabelas;
+%macro log_estruturas;
+	/* ESTRUTURA_COMERCIAL*/
+	proc sql noprint;
 		create table ESTRUTURA_COMERCIAL ( 
 			UR CHAR(21),
 			COD_RE NUM FORMAT=BEST12.,
@@ -1515,29 +1555,57 @@ quit;
 			DATA_INI NUM FORMAT=DATE9.,
 			DATA_FIN NUM FORMAT=DATE9.);
 	quit;
-	%log_verificaTabela(SIMULA,ESTRUTURA_COMERCIAL,erro,ESTRUTURA_COMERCIAL)	
-	/* FERIADO*/
-	proc sql noprint;
-		create table FERIADO ( 
-			COD_CD NUM FORMAT=BEST12.,
-			CD CHAR(24),
-			DATA NUM FORMAT=PTGDFDE9.,
-			DESCRICAO CHAR(36),
-			FOLGA_NOTURNO NUM FORMAT=BEST12.);
-	quit;
-	%log_verificaTabela(SIMULA,FERIADO,erro,FERIADO)	
-	/* ROTA_ZONEAMENTO*/
-	proc sql noprint;
-		create table ROTA_ZONEAMENTO ( 
-			ROTA NUM FORMAT=BEST12.,
-			ZONEAMENTO CHAR(9),
-			nome_cidade CHAR(36),
-			PRAZO_CONTRATADO NUM FORMAT=BEST12.,
-			DATA_INI NUM FORMAT=DATE9.,
-			DATA_FIN NUM FORMAT=DATE9.);
-	quit;
-	%log_verificaTabela(SIMULA,ROTA_ZONEAMENTO,erro,ROTA_ZONEAMENTO)	
-%mend log_tabelas;
+	%log_verificaTabela(SIMULA,ESTRUTURA_COMERCIAL,erro,ESTRUTURA_COMERCIAL)		
+
+	/* ESTRUTURA_LOGISTICA*/
+	PROC SQL;
+	create table WORK.ESTRUTURA_LOGISTICA
+	  (
+		   COD_CD num format=BEST12. informat=BEST12.,
+		   CD char(24) format=$CHAR24. informat=$CHAR24.,
+		   TRANSPORTADORA char(30) format=$CHAR30. informat=$CHAR30.,
+		   FILIAL char(50) format=$CHAR50. informat=$CHAR50.,
+		   ROTA num format=BEST12. informat=BEST12.,
+		   ZONEAMENTO char(9) format=$CHAR9. informat=$CHAR9.,
+		   UF char(2) format=$CHAR2. informat=$CHAR2.,
+		   NOME_UF char(19) format=$CHAR19. informat=$CHAR19.,
+		   CIDADE char(40) format=$CHAR40. informat=$CHAR40.,
+		   DURACAO_TOTAL num format=BEST12. informat=BEST12.,
+		   DURACAO_CD_FILIAL num format=F12. informat=BEST12.,
+		   'Vel Média -TP ZN'n num format=BEST12. informat=BEST12.,
+		   'TEMPO MOVIM CARGA'n num format=BEST12. informat=BEST12.,
+		   'TIPO TURNO MOV'n num format=BEST12. informat=BEST12.,
+		   'TIPO TURNO EXP'n num format=BEST12. informat=BEST12.,
+		   'TEMPO ENTREGA'n num format=BEST12. informat=BEST12.,
+		   PRAZO_CONTRATADO num format=BEST12. informat=BEST12.,
+		   DOM char(1) format=$CHAR1. informat=$CHAR1.,
+		   SEG char(1) format=$CHAR1. informat=$CHAR1.,
+		   TER char(1) format=$CHAR1. informat=$CHAR1.,
+		   QUA char(1) format=$CHAR1. informat=$CHAR1.,
+		   QUI char(1) format=$CHAR1. informat=$CHAR1.,
+		   SEX char(1) format=$CHAR1. informat=$CHAR1.,
+		   SAB char(1) format=$CHAR1. informat=$CHAR1.,
+		   HORA_CORTE num format=HHMM5. informat=HHMM5.,
+		   DIA_CORTE num format=BEST12. informat=BEST12.,
+		   DIA_COLETA num format=BEST12. informat=BEST12.,
+		   HORA_COLETA num format=HHMM5. informat=HHMM5.,
+		   STATUS char(5) format=$CHAR5. informat=$CHAR5.,
+		   GRUPO char(5) format=$CHAR5. informat=$CHAR5.,
+		   COD_PA num format=BEST12. informat=BEST12.,
+		   PA char(1) format=$CHAR1. informat=$CHAR1.,
+		   CAPACIDADE_ESTRATEGIA num format=BEST12. informat=BEST12.,
+		   CAPACIDADE_NORMAL num format=BEST12. informat=BEST12.,
+		   SAI_SABADO num format=BEST12. informat=BEST12.,
+		   SAI_DOMINGO num format=BEST12. informat=BEST12.,
+		   ENTREGA_SABADO num format=BEST12. informat=BEST12.,
+		   ENTREGA_DOMINGO num format=BEST12. informat=BEST12.,
+		   DATA_INI num format=DATE9. informat=DATE9.,
+		   DATA_FIN num format=DATE9. informat=DATE9.
+	  );
+    QUIT;
+	%log_verificaTabela(SIMULA,ESTRUTURA_LOGISTICA,erro,ESTRUTURA_LOGISTICA)	
+%mend log_estruturas;
+
 %macro log_main;
 %global erro;
 %let erro = 0;
@@ -1565,7 +1633,6 @@ PROC SQL NOPRINT;
 QUIT;
 %PUT ERRO=&ERRO.;
 %mend log_main;
-/*%log_main;*/
 %macro timing;
 	current = time();
 	put current= time.;
@@ -1840,7 +1907,6 @@ run;
 
 /******************** Main *********************/
 %macro simula;
-%init_nova_estrutura
 proc optmodel;
 	num current init 0;
 	%timing
@@ -2063,6 +2129,9 @@ QUIT;
 %macro main;
 %global erro;
 %let erro = 0;
+%log_estruturas
+%init_nova_estrutura
+%log_main
 %if &erro = 0 %then %do;
 	%simula
 	%rel_demanda_detalhada

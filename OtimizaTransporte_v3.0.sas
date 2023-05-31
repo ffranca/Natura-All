@@ -11,11 +11,11 @@ OPTIONS VALIDVARNAME=ANY;
 
 *  End EG generated code (do not edit this line);
 
-/*libname SIMULA "/sasdata/DATA/NATURA/BALANCEAMENTO/PLANEJAMENTO_DSC";*/
-libname SIMULA "E:\logical\projetos\Natura\Manutenção 2023\dados_novos";
+libname SIMULA "/sasdata/DATA/NATURA/BALANCEAMENTO/PLANEJAMENTO_DSC";
+/*libname SIMULA "E:\logical\projetos\Natura\Manutenção 2023\dados_novos";*/
 %let _data_ini = 15FEB2023;
 %let _data_fin = 31MAY2023;
-options symbolgen mprint mlogic;
+options NOsymbolgen NOmprint NOmlogic;
 %macro init_nova_estrutura;
 /*CADASTRO_FILIAIS*/
 PROC SQL;
@@ -206,6 +206,27 @@ PROC SQL;
                t1.COD_PA,
                t1.PA;
 QUIT;
+/* CAPACIDADE_FILIAL*/
+PROC SQL;
+   CREATE TABLE WORK.CAPACIDADE_FILIAL AS 
+   SELECT DISTINCT t1.TRANSPORTADORA, 
+          t1.FILIAL, 
+          t1.CAPACIDADE_ESTRATEGIA, 
+          t1.CAPACIDADE_NORMAL, 
+          t1.SAI_SABADO, 
+          t1.SAI_DOMINGO, 
+          t1.ENTREGA_SABADO, 
+          t1.ENTREGA_DOMINGO, 
+          /* DATA_INI */
+            (MIN(t1.DATA_INI)) FORMAT=DATE9. AS DATA_INI, 
+          /* DATA_FIN */
+            (MAX(t1.DATA_FIN)) FORMAT=DATE9. AS DATA_FIN
+      FROM SIMULA.ESTRUTURA_LOGISTICA t1
+      GROUP BY t1.TRANSPORTADORA,
+               t1.FILIAL
+;
+QUIT;
+
 /* ESTRUTURA_COMERCIAL*/
 PROC SQL;
    CREATE TABLE WORK.zoneamento_cidade AS 
@@ -369,7 +390,7 @@ proc optmodel printlevel=0;
 	num cap_estr{TrFilial};
 	num entrega_sabado{TrFilial};
 	num entrega_domingo{TrFilial};
-	read data SIMULA.CAPACIDADE_FILIAL(where=(filial="&FL")) into TrFilial=[TRANSPORTADORA FILIAL]
+	read data CAPACIDADE_FILIAL(where=(filial="&FL")) into TrFilial=[TRANSPORTADORA FILIAL]
 		cap_normal=capacidade_normal cap_estr=capacidade_estrategia 
 		entrega_sabado entrega_domingo;
 

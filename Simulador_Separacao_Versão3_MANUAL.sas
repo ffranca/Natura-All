@@ -11,7 +11,9 @@ OPTIONS VALIDVARNAME=ANY;
 %mend ExtendValidMemName;
 
 %ExtendValidMemName;
-libname SIMULA "E:\logical\projetos\Natura\Manutenção 2023\dados_novos";
+/*libname SIMULA "E:\logical\projetos\Natura\Manutenção 2023\dados_novos";*/
+libname SIMULA "/sasdata/DATA/NATURA/BALANCEAMENTO/PLANEJAMENTO_DSC";
+
 %macro init_nova_estrutura;
 /* Gera tabela CD*/
 PROC SQL;
