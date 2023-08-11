@@ -51,7 +51,7 @@ PROC SQL;
             (MIN(t1.DATA_INI)) FORMAT=DATE9. AS SETOR_DATA_INI, 
           /* SETOR_DATA_FIN */
             (MAX(t1.DATA_FIN)) FORMAT=DATE9. AS SETOR_DATA_FIN
-      FROM WORK.ESTRUTURA_COMERCIAL t1
+      FROM SIMULA.ESTRUTURA_COMERCIAL t1
       GROUP BY t1.COD_SETOR,
                t1.SETOR,
                t1.ZONEAMENTO;
@@ -594,8 +594,8 @@ proc sql;
 	insert into simula.log 
 		select 
 			'AVISO' as TIPO, 
-			'Rota ' || compress(put(ROTA,8.)) || ' sem dia de entrega expressa' as DESCRICAO,
-			'CALENDARIZACAO' AS TABELA1,
+			'Rota ' || compress(put(ROTA,8.)) || ' sem dia de calendarização' as DESCRICAO,
+			'ESTRUTURA_LOGISTICA' AS TABELA1,
 			'N/A' AS TABELA2
 		from WORK.LOG8_001;
 quit;
@@ -1547,9 +1547,6 @@ quit;
 			GV CHAR(21),
 			COD_SETOR NUM FORMAT=BEST12.,
 			SETOR CHAR(21),
-			UF CHAR(2),
-			NOME_UF CHAR(19),
-			CIDADE CHAR(32),
 			ZONEAMENTO CHAR(9),
 			QTD_CN NUM FORMAT=BEST12.,
 			DATA_INI NUM FORMAT=DATE9.,
@@ -1607,11 +1604,7 @@ quit;
 %mend log_estruturas;
 
 %macro log_main;
-%global erro;
-%let erro = 0;
-proc sql;
-	create table simula.log (TIPO CHAR(10), DESCRICAO CHAR(100), TABELA1 CHAR(30), TABELA2 CHAR(30));
-quit;
+
 %log_tabelas
 %if &erro. = 0 %then %do;
 	%log_estrutura_com
@@ -2129,6 +2122,9 @@ QUIT;
 %macro main;
 %global erro;
 %let erro = 0;
+proc sql;
+	create table simula.log (TIPO CHAR(10), DESCRICAO CHAR(200), TABELA1 CHAR(30), TABELA2 CHAR(30));
+quit;
 %log_estruturas
 %init_nova_estrutura
 %log_main
